@@ -31,10 +31,11 @@ if __name__ == '__main__':
 
     sims = {}
     for sim_id in simulation_ids:
-        rand_int = random.randint(1, 10)
-        sim_id = f"{sim_id} - {rand_int} Hz"
+        # simulation parameters
+        sampling_frequency = random.randint(5, 10)
+        sim_id = f"{sim_id} - {sampling_frequency} Hz"
         sims[sim_id] = MonteCarloSimulation(
-            sim_id, socketio, rand_int)
+            sim_id, socketio, sampling_frequency)
         sims[sim_id].start()
 
     flask_app = SimulationApp(app, socketio, sims)

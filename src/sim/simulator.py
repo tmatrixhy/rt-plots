@@ -6,9 +6,14 @@ import time
 import random
 import logging
 import threading
+import itertools
+from collections import deque
 
 # third party
 from flask_socketio import SocketIO, emit
+
+# project
+from src.sim.statistics import Statistics
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +39,15 @@ class MonteCarloSimulation:
         sleep_frequency (float): Time interval between data samples in seconds.
     """
 
-    def __init__(self, sim_id: str, socketio: SocketIO, sample_hz:int=10) -> None:
+    def __init__(self, 
+                 sim_id: str, 
+                 socketio: SocketIO, 
+                 sample_hz:int=10, 
+                 max_sample_queue:int=1000) -> None:
         self.sim_id = sim_id
         self.socketio = socketio
+        self.max_sample_queue = max_sample_queue
+        self.sample_queue = deque(maxlen=self.max_sample_queue)
         self.current_value = 0
         self.initiate_value = None
         self.max_delta = 0
@@ -45,6 +56,7 @@ class MonteCarloSimulation:
         self.data_lock = threading.Lock()
         self.start_time = time.time()
         self.sample_frequency = 1 / sample_hz # hertz to seconds
+        self.stats = Statistics(self.sample_queue)
 
     def start(self) -> None:
         """
@@ -80,6 +92,7 @@ class MonteCarloSimulation:
         self.current_value = 0
         self.initiate_value = None
         self.max_delta = 0
+        self.sample_queue = deque(maxlen=self.max_sample_queue)
         self.start_time = time.time()
         self.start()
 
@@ -102,6 +115,8 @@ class MonteCarloSimulation:
             self.max_delta = 0
             logger.info(f"Initiated simulation {self.sim_id} with value {self.initiate_value}")
 
+
+    
     def run_simulation(self) -> None:
         """
         Run the simulation loop.
@@ -112,15 +127,26 @@ class MonteCarloSimulation:
                 change = random.uniform(-5, 5)
                 self.current_value += change
 
+                if len(self.sample_queue) == self.max_sample_queue - 5:
+                    self.sample_queue.popleft()
+
+                self.sample_queue.append(self.current_value)
+
+                self.stats.process()
+                
                 if self.initiate_value is not None:
                     self.max_delta = self.current_value - self.initiate_value
 
-            self.socketio.emit('new_data', {
+            payload = {
                 'sim_id': self.sim_id,
                 'x': current_time,
                 'y': self.current_value,
                 'initiate_value': self.initiate_value,
                 'max_delta': self.max_delta,
-            })
+            }
+
+            payload.update(self.stats.get_updates())
+
+            self.socketio.emit('new_data', payload)
 
             time.sleep(self.sample_frequency)
