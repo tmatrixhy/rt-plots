@@ -1,6 +1,9 @@
 # rt-plots
 
-Monte Carlo simulations with a front-end.
+Monte Carlo simulator with:
+* uniform sampling defined by previous value + [-5,5]
+* random sampling rate [5,10] Hz per simulator  
+* real-time data feed and plotting to a browser front-end
 
 # pre-requisites:  
 

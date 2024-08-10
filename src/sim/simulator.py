@@ -44,7 +44,7 @@ class MonteCarloSimulation:
         self.thread = None
         self.data_lock = threading.Lock()
         self.start_time = time.time()
-        self.sleep_frequency = 1 / sample_hz # hertz to seconds
+        self.sample_frequency = 1 / sample_hz # hertz to seconds
 
     def start(self) -> None:
         """
@@ -123,4 +123,4 @@ class MonteCarloSimulation:
                 'max_delta': self.max_delta,
             })
 
-            time.sleep(self.sleep_frequency)
+            time.sleep(self.sample_frequency)
