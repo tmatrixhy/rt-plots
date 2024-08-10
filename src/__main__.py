@@ -6,7 +6,8 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 
 class MonteCarloSimulation:
-    def __init__(self, socketio):
+    def __init__(self, sim_id, socketio):
+        self.sim_id = sim_id  # Unique ID for the simulation
         self.socketio = socketio
         self.current_value = 0
         self.initiate_value = None
@@ -59,6 +60,7 @@ class MonteCarloSimulation:
                     self.max_delta = self.current_value - self.initiate_value
             
             self.socketio.emit('new_data', {
+                'sim_id': self.sim_id,
                 'x': current_time,
                 'y': self.current_value,
                 'initiate_value': self.initiate_value,
@@ -69,50 +71,76 @@ class MonteCarloSimulation:
 
 
 class SimulationApp:
-    def __init__(self, app:Flask, sockio: SocketIO, sim: MonteCarloSimulation):
+    def __init__(self, app: Flask, socketio: SocketIO, simulation_ids: dict):
         self.app = app
-        self.socketio = sockio
-        self.simulation = sim
+        self.socketio = socketio
+        self.simulations = simulation_ids
         self._setup_routes()
         self._setup_socketio_events()
 
     def _setup_routes(self):
         @self.app.route('/')
         def index():
-            return render_template('index.html')
+            return render_template('index.html', simulation_ids=self.simulations.keys())
+
+        @app.route('/favicon.ico')
+        def favicon():
+            return '', 204
 
     def _setup_socketio_events(self):
-        @self.socketio.on('pause')
-        def handle_pause():
-            self.simulation.pause()
-        
         @self.socketio.on('start')
-        def handle_start():
-            self.simulation.start()
+        def handle_start(data):
+            sim_id = data['sim_id']
+            if sim_id in self.simulations:
+                self.simulations[sim_id].start()
+
+        @self.socketio.on('pause')
+        def handle_pause(data):
+            sim_id = data['sim_id']
+            if sim_id in self.simulations:
+                self.simulations[sim_id].pause()
 
         @self.socketio.on('resume')
-        def handle_resume():
-            self.simulation.resume()
+        def handle_resume(data):
+            sim_id = data['sim_id']
+            if sim_id in self.simulations:
+                self.simulations[sim_id].resume()
 
         @self.socketio.on('initiate')
-        def handle_initiate():
-            self.simulation.initiate()
+        def handle_initiate(data):
+            sim_id = data['sim_id']
+            if sim_id in self.simulations:
+                self.simulations[sim_id].initiate()
 
         @self.socketio.on('restart')
-        def handle_restart():
-            self.simulation.restart()
-            self.socketio.emit('clear_data')
+        def handle_restart(data):
+            sim_id = data['sim_id']
+            if sim_id in self.simulations:
+                self.simulations[sim_id].restart()
+                self.socketio.emit('clear_data', {'sim_id': sim_id})
+
+    def run(self, debug=True):
+        self.socketio.run(self.app, debug=debug)
 
 
 if __name__ == '__main__':
+    simulation_ids = ["sim_a", "sim_b", "sim_c"]  # List of simulation IDs
+
     app = Flask(__name__)
-    sockio = SocketIO(app)
-    sim = MonteCarloSimulation(sockio)
-    flask_app = SimulationApp(app, sockio, sim)
+    socketio = SocketIO(app)
+    
+    sims = {}  # Dictionary to hold simulations by ID
+    for sim_id in simulation_ids:
+        sims[sim_id] = MonteCarloSimulation(sim_id, socketio)
+        sims[sim_id].start()
+
+    flask_app = SimulationApp(app, socketio, sims)
+
     try:
-        sockio.run(app, debug=True)
+        flask_app.run(debug=True)
     except Exception as e:
         print(e)
     finally:
-        sim.pause()  # Stop the simulation
+        for sim in flask_app.simulations.values():
+            sim.stop()  # Stop all simulations
         sys.exit(0)

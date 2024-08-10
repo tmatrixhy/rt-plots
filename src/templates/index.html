@@ -2,35 +2,42 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Real-Time Simulation</title>
+    <title>Real-Time Simulations</title>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
-    <div id="chart"></div>
-    <button onclick="Start()">Start</button>
-    <button onclick="pauseSimulation()">Pause</button>
-    <button onclick="resumeSimulation()">Resume</button>
-    <button onclick="initiateSimulation()">Initiate</button>
-    <button onclick="Restart()">Restart</button>
-    <div id="initiate-value">Initiate Value: N/A</div>
-    <div id="current-value">Current Value: 0</div>
-    <div id="max-delta">Max Delta: N/A</div>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    {% for sim_id in simulation_ids %}
+    <div id="chart-{{ sim_id }}"></div>
+    <h2>{{ sim_id }}</h2>
+    <button onclick="Start('{{ sim_id }}')">Start</button>
+    <button onclick="pauseSimulation('{{ sim_id }}')">Pause</button>
+    <button onclick="resumeSimulation('{{ sim_id }}')">Resume</button>
+    <button onclick="Restart('{{ sim_id }}')">Restart</button>
+    <button onclick="initiate('{{ sim_id }}')" style="background-color: red; color: white; font-weight: bold;">Initiate</button>
+    <div id="initiate-value-{{ sim_id }}">Initiate Value: N/A</div>
+    <div id="current-value-{{ sim_id }}">Current Value: 0</div>
+    <div id="max-delta-{{ sim_id }}">Max Delta: N/A</div>
+    <hr>
+    {% endfor %}
 
     <script>
         var socket = io.connect('http://' + document.domain + ':' + location.port);
 
-        var trace1 = {
+        var traces = {};  // Object to hold traces for each simulation
+        var layouts = {};  // Object to hold layouts for each simulation
+
+        {% for sim_id in simulation_ids %}
+        traces['{{ sim_id }}'] = {
             x: [],
             y: [],
             mode: 'lines+markers',
-            name: 'Simulation Data'
+            name: '{{ sim_id }} Data'
         };
 
-        var data = [trace1];
-
-        var layout = {
-            title: 'Monte Carlo Simulation',
+        layouts['{{ sim_id }}'] = {
+            title: 'Monte Carlo Simulation: {{ sim_id }}',
             xaxis: {
                 title: 'Time',
                 range: [Date.now() / 1000 - 30, Date.now() / 1000],  // Display last 30 seconds
@@ -40,20 +47,31 @@
             showlegend: true
         };
 
-        Plotly.newPlot('chart', data, layout);
+        Plotly.newPlot('chart-{{ sim_id }}', [traces['{{ sim_id }}']], layouts['{{ sim_id }}']);
+        {% endfor %}
 
         socket.on('new_data', function(msg) {
+            var sim_id = msg.sim_id;
             var time = msg.x;
             var value = msg.y;
 
             // Extend the trace with new data
-            Plotly.extendTraces('chart', {
+            Plotly.extendTraces('chart-' + sim_id, {
                 x: [[time]],
                 y: [[value]]
             }, [0]);
-
+            
+            // Limit the number of points to the last 600
+            if (traces[sim_id].x.length > 600) {
+                traces[sim_id].x = traces[sim_id].x.slice(-600);
+                traces[sim_id].y = traces[sim_id].y.slice(-600);
+                Plotly.update('chart-' + sim_id, {
+                    x: [traces[sim_id].x],
+                    y: [traces[sim_id].y]
+                });
+            }
             // Calculate the minimum and maximum Y values for the Y-axis range
-            var yValues = trace1.y;
+            var yValues = traces[sim_id].y;
             var minY = Math.min(...yValues) - 10;
             var maxY = Math.max(...yValues) + 10;
 
@@ -64,19 +82,19 @@
             }
 
             // Update the x-axis range to keep the last 30 seconds in view
-            Plotly.relayout('chart', {
+            Plotly.relayout('chart-' + sim_id, {
                 'xaxis.range': [time - 30, time],
                 'yaxis.range': [minY, maxY]
             });
 
-            document.getElementById('current-value').innerHTML = 'Current Value: ' + value.toFixed(2);
+            document.getElementById('current-value-' + sim_id).innerHTML = 'Current Value: ' + value.toFixed(2);
 
             if (msg.initiate_value !== null) {
-                document.getElementById('initiate-value').innerHTML = 'Initiate Value: ' + msg.initiate_value.toFixed(2);
-                document.getElementById('max-delta').innerHTML = 'Max Delta: ' + msg.max_delta.toFixed(2);
+                document.getElementById('initiate-value-' + sim_id).innerHTML = 'Initiate Value: ' + msg.initiate_value.toFixed(2);
+                document.getElementById('max-delta-' + sim_id).innerHTML = 'Max Delta: ' + msg.max_delta.toFixed(2);
 
                 // Add or update the horizontal line for the initiate value
-                Plotly.relayout('chart', {
+                Plotly.relayout('chart-' + sim_id, {
                     shapes: [{
                         type: 'line',
                         x0: time - 30,
@@ -93,34 +111,35 @@
             }
         });
 
-        socket.on('clear_data', function() {
-        // Clear the data from the graph and reset layout
-        trace1.x = [];
-        trace1.y = [];
-        Plotly.newPlot('chart', [trace1], layout);
-        document.getElementById('initiate-value').innerHTML = 'Initiate Value: ' + 'N/A';
-        document.getElementById('max-delta').innerHTML = 'Max Delta: ' + 'N/A';
+        socket.on('clear_data', function(msg) {
+            var sim_id = msg.sim_id;
+            // Clear the data from the graph and reset layout
+            traces[sim_id].x = [];
+            traces[sim_id].y = [];
+            Plotly.newPlot('chart-' + sim_id, [traces[sim_id]], layouts[sim_id]);
+            Plotly.relayout('chart-' + sim_id, { shapes: [] });
+            document.getElementById('initiate-value-' + sim_id).innerHTML = 'Initiate Value: ' + 'N/A';
+            document.getElementById('max-delta-' + sim_id).innerHTML = 'Max Delta: ' + 'N/A';
         });
 
-
-        function pauseSimulation() {
-            socket.emit('pause');
+        function pauseSimulation(sim_id) {
+            socket.emit('pause', {sim_id: sim_id});
         }
 
-        function resumeSimulation() {
-            socket.emit('resume');
+        function resumeSimulation(sim_id) {
+            socket.emit('resume', {sim_id: sim_id});
         }
 
-        function initiateSimulation() {
-            socket.emit('initiate');
+        function initiate(sim_id) {
+            socket.emit('initiate', {sim_id: sim_id});
         }
 
-        function Restart() {
-            socket.emit('restart');
+        function Restart(sim_id) {
+            socket.emit('restart', {sim_id: sim_id});
         }
 
-        function Start() {
-            socket.emit('start');
+        function Start(sim_id) {
+            socket.emit('start', {sim_id: sim_id});
         }
     </script>
 </body>
