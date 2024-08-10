@@ -11,7 +11,7 @@ Monte Carlo simulations with a front-end.
 
 ```
 poetry install
-poetry run python -m src
+poetry run python -m src.sim
 ```
 
 Open browser and navigate to `http://127.0.0.1:5000`
