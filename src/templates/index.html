@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Real-Time Simulation</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div id="chart"></div>
+    <button onclick="Start()">Start</button>
+    <button onclick="pauseSimulation()">Pause</button>
+    <button onclick="resumeSimulation()">Resume</button>
+    <button onclick="initiateSimulation()">Initiate</button>
+    <button onclick="Restart()">Restart</button>
+    <div id="initiate-value">Initiate Value: N/A</div>
+    <div id="current-value">Current Value: 0</div>
+    <div id="max-delta">Max Delta: N/A</div>
+
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        var trace1 = {
+            x: [],
+            y: [],
+            mode: 'lines+markers',
+            name: 'Simulation Data'
+        };
+
+        var data = [trace1];
+
+        var layout = {
+            title: 'Monte Carlo Simulation',
+            xaxis: {
+                title: 'Time',
+                range: [Date.now() / 1000 - 30, Date.now() / 1000],  // Display last 30 seconds
+                autorange: false
+            },
+            yaxis: {title: 'Value'},
+            showlegend: true
+        };
+
+        Plotly.newPlot('chart', data, layout);
+
+        socket.on('new_data', function(msg) {
+            var time = msg.x;
+            var value = msg.y;
+
+            // Extend the trace with new data
+            Plotly.extendTraces('chart', {
+                x: [[time]],
+                y: [[value]]
+            }, [0]);
+
+            // Calculate the minimum and maximum Y values for the Y-axis range
+            var yValues = trace1.y;
+            var minY = Math.min(...yValues) - 10;
+            var maxY = Math.max(...yValues) + 10;
+
+            // Adjust the min and max Y values if initiate_value is set
+            if (msg.initiate_value !== null) {
+                minY = Math.min(minY, msg.initiate_value);
+                maxY = Math.max(maxY, msg.initiate_value);
+            }
+
+            // Update the x-axis range to keep the last 30 seconds in view
+            Plotly.relayout('chart', {
+                'xaxis.range': [time - 30, time],
+                'yaxis.range': [minY, maxY]
+            });
+
+            document.getElementById('current-value').innerHTML = 'Current Value: ' + value.toFixed(2);
+
+            if (msg.initiate_value !== null) {
+                document.getElementById('initiate-value').innerHTML = 'Initiate Value: ' + msg.initiate_value.toFixed(2);
+                document.getElementById('max-delta').innerHTML = 'Max Delta: ' + msg.max_delta.toFixed(2);
+
+                // Add or update the horizontal line for the initiate value
+                Plotly.relayout('chart', {
+                    shapes: [{
+                        type: 'line',
+                        x0: time - 30,
+                        y0: msg.initiate_value,
+                        x1: time,
+                        y1: msg.initiate_value,
+                        line: {
+                            color: 'red',
+                            width: 2,
+                            dash: 'dash'
+                        }
+                    }]
+                });
+            }
+        });
+
+        socket.on('clear_data', function() {
+        // Clear the data from the graph and reset layout
+        trace1.x = [];
+        trace1.y = [];
+        Plotly.newPlot('chart', [trace1], layout);
+        document.getElementById('initiate-value').innerHTML = 'Initiate Value: ' + 'N/A';
+        document.getElementById('max-delta').innerHTML = 'Max Delta: ' + 'N/A';
+        });
+
+
+        function pauseSimulation() {
+            socket.emit('pause');
+        }
+
+        function resumeSimulation() {
+            socket.emit('resume');
+        }
+
+        function initiateSimulation() {
+            socket.emit('initiate');
+        }
+
+        function Restart() {
+            socket.emit('restart');
+        }
+
+        function Start() {
+            socket.emit('start');
+        }
+    </script>
+</body>
+</html>
