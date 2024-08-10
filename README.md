@@ -22,6 +22,7 @@ Open browser and navigate to `http://127.0.0.1:5000`
 # mods
 
 * edit `simulation_ids` in `src/sim/__main__.py` to run more / less sims
+* edit `sampling_frequency` in `src/sim/__main__.py` to change the frequency of sampling
 * edit `change` in `src/sim/simulator.py` to change sampling method
 
 Add functions to the `Statistics` class in `src/sim/statistics.py` in the following manner to add more plots:
