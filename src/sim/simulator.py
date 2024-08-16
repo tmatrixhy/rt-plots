@@ -115,7 +115,14 @@ class MonteCarloSimulation:
             self.max_delta = 0
             logger.info(f"Initiated simulation {self.sim_id} with value {self.initiate_value}")
 
-
+    def sample(self, lower: float=-5.0, upper:float=5.0) -> None:
+        """
+        Sample a random value within the specified range.
+        
+        :param lower: The lower bound of the range (default: -5.0)
+        :param upper: The upper bound of the range (default: 5.0)
+        """
+        return random.uniform(lower, upper)
     
     def run_simulation(self) -> None:
         """
@@ -124,7 +131,9 @@ class MonteCarloSimulation:
         while self.running:
             with self.data_lock:
                 current_time = time.time() - self.start_time
-                change = random.uniform(-5, 5)
+                
+                change = self.sample()
+
                 self.current_value += change
 
                 if len(self.sample_queue) == self.max_sample_queue - 5:
