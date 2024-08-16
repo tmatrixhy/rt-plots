@@ -63,7 +63,7 @@ response=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
           "sslmode": "'${datasource_json_data_sslmode}'"
         }
       }' \
-  http://${GRAFANA_ADMIN_USER}:${GRAFANA_ADMIN_PASSWORD}@${grafana_host}:${GRAFANA_PORT}/api/datasources)
+  http://${grafana_host}:${GRAFANA_PORT}/api/datasources)
 
 if [ "$response" -eq 200 ] || [ "$response" -eq 201 ]; then
   echo "Grafana PostgreSQL datasource configured successfully."

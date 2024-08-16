@@ -7,6 +7,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
      - ../data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
   grafana:
     image: grafana/grafana:latest
     environment:
