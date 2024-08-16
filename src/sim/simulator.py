@@ -8,12 +8,12 @@ import logging
 import threading
 import itertools
 from collections import deque
-
-# third party
-from flask_socketio import SocketIO, emit
+from datetime import datetime
 
 # project
 from src.sim.statistics import Statistics
+from src.sim.db_client import DatabaseClient
+from src.sim.data_model import SampleData
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +23,12 @@ class MonteCarloSimulation:
 
     Args:
         sim_id (str): Unique ID for the simulation.
-        socketio (SocketIO): SocketIO instance for emitting data.
+        db_client (DatabaseClient): Database client for writing data.
         sample_hz (int): Frequency of data sampling in Hz.
 
     Attributes:
         sim_id (str): Unique ID for the simulation.
-        socketio (SocketIO): SocketIO instance for emitting data.
+        db_client (DatabaseClient): Database client for writing data.
         current_value (float): Current value of the simulation.
         initiate_value (float): Initial value of the simulation.
         max_delta (float): Maximum change in value since initiation.
@@ -41,11 +41,11 @@ class MonteCarloSimulation:
 
     def __init__(self, 
                  sim_id: str, 
-                 socketio: SocketIO, 
+                 db_client: DatabaseClient, 
                  sample_hz:int=10, 
                  max_sample_queue:int=1000) -> None:
         self.sim_id = sim_id
-        self.socketio = socketio
+        self.db_client = db_client
         self.max_sample_queue = max_sample_queue
         self.sample_queue = deque(maxlen=self.max_sample_queue)
         self.current_value = 0
@@ -56,7 +56,7 @@ class MonteCarloSimulation:
         self.data_lock = threading.Lock()
         self.start_time = time.time()
         self.sample_frequency = 1 / sample_hz # hertz to seconds
-        self.stats = Statistics(self.sample_queue)
+        #self.stats = Statistics(self.sample_queue)
 
     def start(self) -> None:
         """
@@ -130,32 +130,32 @@ class MonteCarloSimulation:
         """
         while self.running:
             with self.data_lock:
-                current_time = time.time() - self.start_time
-                
+                current_time = datetime.utcnow()
+                                
                 change = self.sample()
 
                 self.current_value += change
 
-                if len(self.sample_queue) == self.max_sample_queue - 5:
-                    self.sample_queue.popleft()
+                # if len(self.sample_queue) == self.max_sample_queue - 5:
+                #     self.sample_queue.popleft()
 
-                self.sample_queue.append(self.current_value)
+                # self.sample_queue.append(self.current_value)
 
-                self.stats.process()
+                # self.stats.process()
                 
                 if self.initiate_value is not None:
                     self.max_delta = self.current_value - self.initiate_value
 
-            payload = {
-                'sim_id': self.sim_id,
-                'x': current_time,
-                'y': self.current_value,
-                'initiate_value': self.initiate_value,
-                'max_delta': self.max_delta,
-            }
+                payload = SampleData(
+                    timestamp=current_time,
+                    sim_id=self.sim_id,
+                    value=self.current_value,
+                    mark=self.initiate_value,
+                    delta=self.max_delta
+                )
 
-            payload.update(self.stats.get_updates())
+                # payload.update(self.stats.get_updates())
 
-            self.socketio.emit('new_data', payload)
+                self.db_client.write(payload)
 
-            time.sleep(self.sample_frequency)
+                time.sleep(self.sample_frequency)

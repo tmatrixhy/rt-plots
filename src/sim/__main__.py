@@ -7,12 +7,9 @@ import sys
 import random
 import logging
 
-# third party
-from flask import Flask
-from flask_socketio import SocketIO
-
 # project
-from src.sim.app import SimulationApp
+from src.sim.db_client import DatabaseClient
+from src.sim.data_model import SimID
 from src.sim.simulator import MonteCarloSimulation
 
 # setup logging
@@ -23,28 +20,32 @@ logging.basicConfig(
     style="{" )
 logger = logging.getLogger(__name__)
 
-if __name__ == '__main__':
-    simulation_ids = ["sim_a", "sim_b", "sim_c"]
 
-    app = Flask(__name__)
-    socketio = SocketIO(app)
+if __name__ == '__main__':
+    num_simulations = 32
+    simulation_ids = []
+
+    db_client = DatabaseClient()
+
+    for x in range(num_simulations):
+        z = random.randint(1, 100000)
+        simulation_ids.append(f"sim_{z}_{x}")
 
     sims = {}
-    for sim_id in simulation_ids:
-        # simulation parameters
-        sampling_frequency = random.randint(5, 10)
-        sim_id = f"{sim_id} - {sampling_frequency} Hz"
-        sims[sim_id] = MonteCarloSimulation(
-            sim_id, socketio, sampling_frequency)
-        sims[sim_id].start()
-
-    flask_app = SimulationApp(app, socketio, sims)
 
     try:
-        flask_app.run(debug=True)
+        for sim_id in simulation_ids:
+            # simulation parameters
+            sampling_frequency = random.randint(5, 10)
+            sim_id = f"{sim_id} - {sampling_frequency} Hz"
+            db_client.write(SimID(sim_id=sim_id))
+            sims[sim_id] = MonteCarloSimulation(
+                sim_id, db_client, sampling_frequency)
+            sims[sim_id].start()
     except Exception as e:
-        logger.error(e)
-    finally:
-        for sim in flask_app.simulations.values():
-            sim.stop()
+        logger.error(f"Simulation failed to start: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        for sim_id, simulation in sims.items():
+            simulation.stop()
         sys.exit(0)
