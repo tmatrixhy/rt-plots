@@ -30,7 +30,7 @@ class MonteCarloSimulation:
         sim_id (str): Unique ID for the simulation.
         db_client (DatabaseClient): Database client for writing data.
         current_value (float): Current value of the simulation.
-        initiate_value (float): Initial value of the simulation.
+        mark (float): Initial value of the simulation.
         max_delta (float): Maximum change in value since initiation.
         running (bool): Flag indicating if the simulation is running.
         thread (Thread): Thread object for running the simulation.
@@ -49,14 +49,14 @@ class MonteCarloSimulation:
         self.max_sample_queue = max_sample_queue
         self.sample_queue = deque(maxlen=self.max_sample_queue)
         self.current_value = 0
-        self.initiate_value = None
+        self.mark = None
         self.max_delta = 0
         self.running = False
         self.thread = None
         self.data_lock = threading.Lock()
         self.start_time = time.time()
         self.sample_frequency = 1 / sample_hz # hertz to seconds
-        #self.stats = Statistics(self.sample_queue)
+        self.stats = Statistics(self.sample_queue)
 
     def start(self) -> None:
         """
@@ -90,7 +90,7 @@ class MonteCarloSimulation:
         logger.info(f"Restarting simulation {self.sim_id}")
         self.stop()
         self.current_value = 0
-        self.initiate_value = None
+        self.mark = None
         self.max_delta = 0
         self.sample_queue = deque(maxlen=self.max_sample_queue)
         self.start_time = time.time()
@@ -111,9 +111,9 @@ class MonteCarloSimulation:
         Set the current value as the initiation value.
         """
         with self.data_lock:
-            self.initiate_value = self.current_value
+            self.mark = self.current_value
             self.max_delta = 0
-            logger.info(f"Initiated simulation {self.sim_id} with value {self.initiate_value}")
+            logger.info(f"Initiated simulation {self.sim_id} with value {self.mark}")
 
     def sample(self, lower: float=-5.0, upper:float=5.0) -> None:
         """
@@ -136,25 +136,24 @@ class MonteCarloSimulation:
 
                 self.current_value += change
 
-                # if len(self.sample_queue) == self.max_sample_queue - 5:
-                #     self.sample_queue.popleft()
+                if len(self.sample_queue) == self.max_sample_queue - 5:
+                    self.sample_queue.popleft()
 
-                # self.sample_queue.append(self.current_value)
+                self.sample_queue.append(self.current_value)
 
-                # self.stats.process()
+                self.stats.process()
                 
-                if self.initiate_value is not None:
-                    self.max_delta = self.current_value - self.initiate_value
+                if self.mark is not None:
+                    self.max_delta = self.current_value - self.mark
 
                 payload = SampleData(
                     timestamp=current_time,
                     sim_id=self.sim_id,
                     value=self.current_value,
-                    mark=self.initiate_value,
-                    delta=self.max_delta
+                    mark=self.mark,
+                    delta=self.max_delta,
+                    statistics=self.stats.get_updates()
                 )
-
-                # payload.update(self.stats.get_updates())
 
                 self.db_client.write(payload)
 

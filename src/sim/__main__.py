@@ -11,6 +11,10 @@ import logging
 from src.sim.db_client import DatabaseClient
 from src.sim.data_model import SimID
 from src.sim.simulator import MonteCarloSimulation
+from src.sim.rest_api import SimulationRESTAPI
+
+# third party
+import uvicorn
 
 # setup logging
 logging.basicConfig(
@@ -22,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
-    num_simulations = 32
+    num_simulations = 4
     simulation_ids = []
 
     db_client = DatabaseClient()
@@ -42,6 +46,10 @@ if __name__ == '__main__':
             sims[sim_id] = MonteCarloSimulation(
                 sim_id, db_client, sampling_frequency)
             sims[sim_id].start()
+        
+        rest_api = SimulationRESTAPI(sims)
+        
+        uvicorn.run(rest_api.app, host="0.0.0.0", port=8080)
     except Exception as e:
         logger.error(f"Simulation failed to start: {e}")
         sys.exit(1)

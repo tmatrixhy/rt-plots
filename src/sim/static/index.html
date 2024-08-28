@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monte Carlo Simulation Control</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", async function() {
+            // Fetch simulation IDs from the backend
+            const response = await fetch("/simulation-ids/");
+            const data = await response.json();
+
+            const simulationsContainer = document.getElementById("simulationsContainer");
+
+            data.simulation_ids.forEach(simId => {
+                // Create a container for each simulation
+                const simContainer = document.createElement("div");
+                simContainer.id = `sim-${simId}`;
+                simContainer.classList.add("simulation-box");
+
+                // Add simulation title
+                const title = document.createElement("h3");
+                title.textContent = `Simulation: ${simId}`;
+                simContainer.appendChild(title);
+
+                // Add control buttons
+                const buttons = ["start", "pause", "resume", "stop", "restart", "initiate"];
+                buttons.forEach(action => {
+                    const button = document.createElement("button");
+                    button.textContent = action.charAt(0).toUpperCase() + action.slice(1);
+                    button.onclick = () => sendControlRequest(simId, action);
+                    if (action === "initiate") {
+                        button.style.backgroundColor = "red";
+                        button.style.color = "white";
+                        button.style.fontWeight = "bold";
+                    }
+                    simContainer.appendChild(button);
+                });
+
+                // Add mark and delta display
+                const markDisplay = document.createElement("div");
+                markDisplay.id = `mark-${simId}`;
+                markDisplay.textContent = "Mark: N/A";
+                simContainer.appendChild(markDisplay);
+
+                const deltaDisplay = document.createElement("div");
+                deltaDisplay.id = `delta-${simId}`;
+                deltaDisplay.textContent = "Delta: N/A";
+                simContainer.appendChild(deltaDisplay);
+
+                // Append simulation container to the main container
+                simulationsContainer.appendChild(simContainer);
+            });
+
+            // Open a WebSocket connection to listen for delta updates
+            const socket = new WebSocket("ws://" + location.host + "/ws");
+
+            socket.onmessage = function(event) {
+                const msg = JSON.parse(event.data);
+                const simId = msg.sim_id;
+                const delta = msg.delta;
+                const mark = msg.mark;
+
+                // Update the delta and mark values
+                document.getElementById(`delta-${simId}`).textContent = `Delta: ${delta.toFixed(2)}`;
+                if (mark !== null) {
+                    document.getElementById(`mark-${simId}`).textContent = `Mark: ${mark.toFixed(2)}`;
+                }
+            };
+
+            async function sendControlRequest(simId, action) {
+                const response = await fetch(`/control/${simId}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await response.json();
+
+                // Log the response (you can expand this to show in a console box if desired)
+                console.log(`[${simId}] - [${action}] - ${data.message}`);
+            }
+        });
+    </script>
+    <style>
+        .simulation-box {
+            border: 1px solid #000;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monte Carlo Simulation Control</h1>
+    <div id="simulationsContainer"></div>
+</body>
+</html>
