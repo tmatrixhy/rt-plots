@@ -23,12 +23,12 @@
                 simContainer.appendChild(title);
 
                 // Add control buttons
-                const buttons = ["start", "pause", "resume", "stop", "restart", "initiate"];
+                const buttons = ["start", "pause", "resume", "stop", "restart", "mark"];
                 buttons.forEach(action => {
                     const button = document.createElement("button");
                     button.textContent = action.charAt(0).toUpperCase() + action.slice(1);
                     button.onclick = () => sendControlRequest(simId, action);
-                    if (action === "initiate") {
+                    if (action === "mark") {
                         button.style.backgroundColor = "red";
                         button.style.color = "white";
                         button.style.fontWeight = "bold";
@@ -36,36 +36,9 @@
                     simContainer.appendChild(button);
                 });
 
-                // Add mark and delta display
-                const markDisplay = document.createElement("div");
-                markDisplay.id = `mark-${simId}`;
-                markDisplay.textContent = "Mark: N/A";
-                simContainer.appendChild(markDisplay);
-
-                const deltaDisplay = document.createElement("div");
-                deltaDisplay.id = `delta-${simId}`;
-                deltaDisplay.textContent = "Delta: N/A";
-                simContainer.appendChild(deltaDisplay);
-
                 // Append simulation container to the main container
                 simulationsContainer.appendChild(simContainer);
             });
-
-            // Open a WebSocket connection to listen for delta updates
-            const socket = new WebSocket("ws://" + location.host + "/ws");
-
-            socket.onmessage = function(event) {
-                const msg = JSON.parse(event.data);
-                const simId = msg.sim_id;
-                const delta = msg.delta;
-                const mark = msg.mark;
-
-                // Update the delta and mark values
-                document.getElementById(`delta-${simId}`).textContent = `Delta: ${delta.toFixed(2)}`;
-                if (mark !== null) {
-                    document.getElementById(`mark-${simId}`).textContent = `Mark: ${mark.toFixed(2)}`;
-                }
-            };
 
             async function sendControlRequest(simId, action) {
                 const response = await fetch(`/control/${simId}/${action}`, {

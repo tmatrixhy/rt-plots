@@ -1,13 +1,25 @@
+"""
+This module provides web APIs for interacting with Monte Carlo simulations.
+"""
+# locals
+import logging
+from pathlib import Path
+from typing import Dict
+
+# project
+from src.sim.simulator import MonteCarloSimulation
+from src.sim.utils import log_name
+
+# third party
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
-from typing import Dict, Callable
 
-from src.sim.simulator import MonteCarloSimulation
+logger = logging.getLogger(log_name)
 
-class SimulationRESTAPI:
+
+class SimulationWEBAPIs:
     def __init__(self, sims: Dict[str, MonteCarloSimulation]):
         self.app = FastAPI()
         self.app.mount(
@@ -29,7 +41,7 @@ class SimulationRESTAPI:
             ("/control/{sim_id}/resume", "resume", ["POST"]),
             ("/control/{sim_id}/stop", "stop", ["POST"]),
             ("/control/{sim_id}/restart", "restart", ["POST"]),
-            ("/control/{sim_id}/initiate", "initiate", ["POST"])
+            ("/control/{sim_id}/mark", "mark", ["POST"])
         ]
 
         # Dynamically add routes to the FastAPI app

@@ -25,6 +25,12 @@
     },
     {
       "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
       "id": "timeseries",
       "name": "Time series",
       "version": ""
@@ -62,7 +68,9 @@
       },
       "id": 2,
       "panels": [],
-      "title": "Row title",
+      "repeat": "sim_id",
+      "repeatDirection": "h",
+      "title": "Simulations - $sim_id",
       "type": "row"
     },
     {
@@ -129,12 +137,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 19,
         "x": 0,
         "y": 1
       },
       "id": 1,
-      "maxPerRow": 8,
       "options": {
         "legend": {
           "calcs": [],
@@ -147,8 +154,6 @@
           "sort": "none"
         }
       },
-      "repeat": "sim_id",
-      "repeatDirection": "v",
       "targets": [
         {
           "datasource": {
@@ -158,7 +163,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  \"timestamp\" AS \"time\", \r\n  value AS \"value\", \r\n  mark AS \"mark\", \r\n  (statistics->>'running_avg')::float as \"running_avg\" \r\nFROM sampledata \r\nWHERE sim_id = ${sim_id:sqlstring}  -- Use the variable here\r\nORDER BY \"timestamp\" ASC\r\n",
+          "rawSql": "SELECT \r\n  \"timestamp\" AS \"time\", \r\n  value AS \"value\", \r\n  mark AS \"mark\", \r\n  (statistics->>${json_key})::float as \"${json_key}\"\r\nFROM sampledata \r\nWHERE sim_id = ${sim_id:sqlstring}  -- Use the variable here\r\nORDER BY \"timestamp\" ASC\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -216,11 +221,102 @@
           "table": "sampledata"
         }
       ],
-      "title": "Simulations",
+      "title": "${sim_id}",
+      "transparent": true,
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_RT-PLOTS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "semi-dark-red",
+                "value": null
+              },
+              {
+                "color": "semi-dark-green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 5,
+        "x": 19,
+        "y": 1
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_RT-PLOTS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \r\ntimestamp as \"time\",\r\ndelta \r\nFROM sampledata \r\nWHERE sim_id = ${sim_id:sqlstring}\r\nORDER BY time DESC Limit 1; ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "delta",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "sampledata"
+        }
+      ],
+      "title": "Delta - ${sim_id}",
+      "transparent": true,
+      "type": "stat"
     }
   ],
-  "refresh": "5s",
+  "refresh": "200ms",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
@@ -243,6 +339,25 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_RT-PLOTS}"
+        },
+        "definition": "SELECT DISTINCT json_object_keys(statistics) AS key FROM sampledata\n",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "json_key",
+        "options": [],
+        "query": "SELECT DISTINCT json_object_keys(statistics) AS key FROM sampledata\n",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
       }
     ]
   },
@@ -250,10 +365,26 @@
     "from": "now-1m",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "refresh_intervals": [
+      "200ms",
+      "500ms",
+      "1s",
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ]
+  },
   "timezone": "",
   "title": "Simulations",
   "uid": "test",
-  "version": 7,
+  "version": 17,
   "weekStart": ""
 }

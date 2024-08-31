@@ -4,56 +4,63 @@ It creates a Flask app and starts the socketio server.
 """
 # locals
 import sys
+import uuid
 import random
 import logging
+import asyncio
+import argparse
 
 # project
 from src.sim.db_client import DatabaseClient
 from src.sim.data_model import SimID
 from src.sim.simulator import MonteCarloSimulation
-from src.sim.rest_api import SimulationRESTAPI
+from src.sim.web_apis import SimulationWEBAPIs
+from src.sim.web_server import WebServer
+from src.sim.utils import parse_cvars, log_name
 
 # third party
-import uvicorn
-
-# setup logging
-logging.basicConfig(
-    level=logging.INFO, 
-    format="[ {asctime:s} ]|[ {name:>32s} ]|[{lineno:4d}]|[  {levelname:<8s} ]|[ {message:s} ]",
-    datefmt="%Y-%m-%dT%H:%M:%SL",
-    style="{" )
-logger = logging.getLogger(__name__)
+# ..
 
 
-if __name__ == '__main__':
-    num_simulations = 4
+logger = logging.getLogger(log_name)
+
+
+async def main():
+    cvars = parse_cvars()
+
+    num_simulations = cvars.sims if cvars.sims else 4
+
     simulation_ids = []
+    sims = {}
+
+    for _ in range(num_simulations):
+        rand = str(uuid.uuid4()).replace("-", "")[:6]
+        simulation_ids.append(f"sim-{rand}")
 
     db_client = DatabaseClient()
 
-    for x in range(num_simulations):
-        z = random.randint(1, 100000)
-        simulation_ids.append(f"sim_{z}_{x}")
-
-    sims = {}
-
+    for sim_id in simulation_ids:
+        sampling_frequency = random.randint(5, 10)
+        sim_id = f"{sim_id}-{sampling_frequency}-Hz"
+        db_client.write(SimID(sim_id=sim_id))
+        sims[sim_id] = MonteCarloSimulation(
+            sim_id, db_client, sampling_frequency)
+        sims[sim_id].start()
+    
+    web_api = SimulationWEBAPIs(sims)
+    web_server = WebServer(
+        web_apis=web_api,
+        host="0.0.0.0", 
+        port=8080
+    )
     try:
-        for sim_id in simulation_ids:
-            # simulation parameters
-            sampling_frequency = random.randint(5, 10)
-            sim_id = f"{sim_id} - {sampling_frequency} Hz"
-            db_client.write(SimID(sim_id=sim_id))
-            sims[sim_id] = MonteCarloSimulation(
-                sim_id, db_client, sampling_frequency)
-            sims[sim_id].start()
-        
-        rest_api = SimulationRESTAPI(sims)
-        
-        uvicorn.run(rest_api.app, host="0.0.0.0", port=8080)
-    except Exception as e:
-        logger.error(f"Simulation failed to start: {e}")
-        sys.exit(1)
-    except KeyboardInterrupt:
+        await web_server.start_server()
+    finally:
+        await web_server.stop_server()
+        db_client.close()
         for sim_id, simulation in sims.items():
             simulation.stop()
         sys.exit(0)
+
+if __name__ == "__main__":
+    asyncio.run(main())

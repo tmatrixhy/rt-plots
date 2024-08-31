@@ -28,3 +28,6 @@ class DatabaseClient:
             session.add(sample_data)
             session.commit()
             logging.debug("Data inserted successfully.")
+
+    def close(self):
+        self.engine.dispose()

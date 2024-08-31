@@ -14,6 +14,9 @@ sqlmodel = "^0.0.21"
 psycopg2 = "^2.9.9"
 fastapi = "^0.112.1"
 uvicorn = "^0.30.6"
+websockets = "^13.0.1"
+hypercorn = "^0.17.3"
+python-socketio = "^5.11.3"
 
 
 [build-system]

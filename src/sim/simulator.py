@@ -15,7 +15,7 @@ from src.sim.statistics import Statistics
 from src.sim.db_client import DatabaseClient
 from src.sim.data_model import SampleData
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("src.sim.utils")
 
 class MonteCarloSimulation:
     """
@@ -49,7 +49,7 @@ class MonteCarloSimulation:
         self.max_sample_queue = max_sample_queue
         self.sample_queue = deque(maxlen=self.max_sample_queue)
         self.current_value = 0
-        self.mark = None
+        self.mark_value = None
         self.max_delta = 0
         self.running = False
         self.thread = None
@@ -63,6 +63,10 @@ class MonteCarloSimulation:
         Start the simulation.
         """
         logger.info(f"Starting simulation {self.sim_id}")
+        logger.error(f"Starting simulation {self.sim_id}")
+        logger.warning(f"Starting simulation {self.sim_id}")
+        logger.debug(f"Starting simulation {self.sim_id}")
+        self.reset()
         self.running = True
         self.thread = threading.Thread(target=self.run_simulation)
         self.thread.start()
@@ -71,29 +75,26 @@ class MonteCarloSimulation:
         """
         Pause the simulation.
         """
-        logger.info(f"Pausing simulation {self.sim_id}")
+        logger.debug(f"Pausing simulation {self.sim_id}")
         self.running = False
 
     def stop(self) -> None:
         """
         Stop the simulation.
         """
-        logger.info(f"Stopping simulation {self.sim_id}")
+        logger.debug(f"Stopping simulation {self.sim_id}")
         self.pause()
         if self.thread is not None:
             self.thread.join()
+        logger.debug(f"closed {self.sim_id}")
 
     def restart(self) -> None:
         """
         Restart the simulation.
         """
-        logger.info(f"Restarting simulation {self.sim_id}")
+        logger.debug(f"Restarting simulation {self.sim_id}")
         self.stop()
-        self.current_value = 0
-        self.mark = None
-        self.max_delta = 0
-        self.sample_queue = deque(maxlen=self.max_sample_queue)
-        self.start_time = time.time()
+        self.reset()
         self.start()
 
     def resume(self) -> None:
@@ -101,19 +102,27 @@ class MonteCarloSimulation:
         Resume the simulation.
         """
         if not self.running:
-            logger.info(f"Resuming simulation {self.sim_id}")
+            logger.debug(f"Resuming simulation {self.sim_id}")
             self.running = True
             self.thread = threading.Thread(target=self.run_simulation)
             self.thread.start()
 
-    def initiate(self) -> None:
+    def reset(self) -> None:
+        self.current_value = 0
+        self.max_delta = 0
+        self.sample_queue = deque(maxlen=self.max_sample_queue)
+        self.start_time = time.time()
+        self.stats = Statistics(self.sample_queue)
+        self.mark_value = None
+
+    def mark(self) -> None:
         """
         Set the current value as the initiation value.
         """
         with self.data_lock:
-            self.mark = self.current_value
+            self.mark_value = self.current_value
             self.max_delta = 0
-            logger.info(f"Initiated simulation {self.sim_id} with value {self.mark}")
+            logger.debug(f"Simulation: {self.sim_id} MARKED with value {self.mark_value}")
 
     def sample(self, lower: float=-5.0, upper:float=5.0) -> None:
         """
@@ -128,33 +137,36 @@ class MonteCarloSimulation:
         """
         Run the simulation loop.
         """
-        while self.running:
-            with self.data_lock:
-                current_time = datetime.utcnow()
-                                
-                change = self.sample()
+        try:
+            while self.running:
+                with self.data_lock:
+                    current_time = datetime.utcnow()
+                                    
+                    change = self.sample()
 
-                self.current_value += change
+                    self.current_value += change
 
-                if len(self.sample_queue) == self.max_sample_queue - 5:
-                    self.sample_queue.popleft()
+                    if len(self.sample_queue) == self.max_sample_queue - 5:
+                        self.sample_queue.popleft()
 
-                self.sample_queue.append(self.current_value)
+                    self.sample_queue.append(self.current_value)
 
-                self.stats.process()
-                
-                if self.mark is not None:
-                    self.max_delta = self.current_value - self.mark
+                    self.stats.process()
+                    
+                    if self.mark_value is not None:
+                        self.max_delta = self.current_value - self.mark_value
 
-                payload = SampleData(
-                    timestamp=current_time,
-                    sim_id=self.sim_id,
-                    value=self.current_value,
-                    mark=self.mark,
-                    delta=self.max_delta,
-                    statistics=self.stats.get_updates()
-                )
+                    payload = SampleData(
+                        timestamp=current_time,
+                        sim_id=self.sim_id,
+                        value=self.current_value,
+                        mark=self.mark_value,
+                        delta=self.max_delta,
+                        statistics=self.stats.get_updates()
+                    )
 
-                self.db_client.write(payload)
+                    self.db_client.write(payload)
 
-                time.sleep(self.sample_frequency)
+                    time.sleep(self.sample_frequency)
+        except KeyboardInterrupt:
+            self.thread.join()
