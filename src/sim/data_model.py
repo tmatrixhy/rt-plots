@@ -2,6 +2,7 @@
 Data Models
 """
 # locals
+import logging
 from datetime import datetime
 from typing import List, Optional, Dict
 
@@ -10,6 +11,8 @@ from pydantic import BaseModel
 from sqlalchemy import Column
 from sqlmodel import SQLModel, Field
 from sqlalchemy.dialects.postgresql import JSON
+
+logger = logging.getLogger(__name__)
 
 class SampleData(SQLModel, table=True):
     timestamp: datetime = Field(default=datetime.utcnow, primary_key=True)

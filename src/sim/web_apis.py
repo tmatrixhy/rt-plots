@@ -8,7 +8,6 @@ from typing import Dict
 
 # project
 from src.sim.simulator import MonteCarloSimulation
-from src.sim.utils import log_name
 
 # third party
 from fastapi import FastAPI, HTTPException
@@ -16,7 +15,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 
-logger = logging.getLogger(log_name)
+logger = logging.getLogger(__name__)
 
 
 class SimulationWEBAPIs:

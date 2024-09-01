@@ -15,7 +15,7 @@ from src.sim.statistics import Statistics
 from src.sim.db_client import DatabaseClient
 from src.sim.data_model import SampleData
 
-logger = logging.getLogger("src.sim.utils")
+logger = logging.getLogger(__name__)
 
 class MonteCarloSimulation:
     """
@@ -62,9 +62,6 @@ class MonteCarloSimulation:
         """
         Start the simulation.
         """
-        logger.info(f"Starting simulation {self.sim_id}")
-        logger.error(f"Starting simulation {self.sim_id}")
-        logger.warning(f"Starting simulation {self.sim_id}")
         logger.debug(f"Starting simulation {self.sim_id}")
         self.reset()
         self.running = True

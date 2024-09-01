@@ -39,6 +39,22 @@ class Statistics:
 
         self._s_running_avg = summation / sample_size
 
+    def proc_ema(self, alpha:float=0.5, sample_size:int=21):
+        """
+        Calculate exponential moving average
+        """
+        if len(self.sample_queue) < sample_size:
+            self._s_ema = 0
+            return
+
+        sample = itertools.islice(self.sample_queue, len(self.sample_queue) - sample_size, len(self.sample_queue) - 1)
+        ema = 1
+        for x in sample:
+            ema = alpha * x + (1 - alpha) * ema
+        
+        self._s_ema = ema
+        #logger.info(self._s_ema)
+
     def process(self):
         """
         Process the statistics by dynamically calling all methods 

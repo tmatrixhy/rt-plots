@@ -16,18 +16,15 @@ from src.sim.data_model import SimID
 from src.sim.simulator import MonteCarloSimulation
 from src.sim.web_apis import SimulationWEBAPIs
 from src.sim.web_server import WebServer
-from src.sim.utils import parse_cvars, log_name
+from src.sim.utils import parse_cvars, setup_logging
 
 # third party
 # ..
 
-
-logger = logging.getLogger(log_name)
-
-
 async def main():
     cvars = parse_cvars()
-
+    
+    setup_logging(cvars)
     num_simulations = cvars.sims if cvars.sims else 4
 
     simulation_ids = []

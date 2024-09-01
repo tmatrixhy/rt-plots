@@ -6,13 +6,13 @@ import asyncio
 import logging
 
 # project
-from src.sim.utils import log_level_map, log_name
+#from src.sim.utils import log_level_map
 
 # third party
 import uvicorn
 
 
-logger = logging.getLogger(log_name)
+logger = logging.getLogger(__name__)
 
 
 class WebServer:
@@ -23,15 +23,16 @@ class WebServer:
 
     async def start_server(self):
         try:
+            await asyncio.sleep(0.1)
             logger.error(logger.getEffectiveLevel())
+            #logger.error(log_level_map)
             config = uvicorn.Config(
                 self.web_apis.app, 
                 host=self.host, 
                 port=self.port, 
                 lifespan="on",
                 log_config=None,
-                log_level=log_level_map.get(
-                    logger.getEffectiveLevel(), "error")
+                log_level=logger.getEffectiveLevel()
             )
             self.server = uvicorn.Server(config)
             await self.server.serve()

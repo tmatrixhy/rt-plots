@@ -11,6 +11,7 @@ from sqlmodel import create_engine, SQLModel, Session
 from src.sim.data_model import SampleData
 from src.sim.config import DATABASE_URL
 
+logger = logging.getLogger(__name__)
 
 class DatabaseClient:
     def __init__(self):
@@ -27,7 +28,6 @@ class DatabaseClient:
         with Session(self.engine) as session:
             session.add(sample_data)
             session.commit()
-            logging.debug("Data inserted successfully.")
 
     def close(self):
         self.engine.dispose()
