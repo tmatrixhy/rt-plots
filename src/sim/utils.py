@@ -12,27 +12,29 @@ import logging
 # ..
 
 # constants
-logging.basicConfig(
-    level=logging.INFO, 
-    format="[ {asctime:s} ]|[ {name:>32s} ]|[{lineno:4d}]|[  {levelname:<8s} ]|[ {message:s} ]",
-    datefmt="%Y-%m-%dT%H:%M:%SL",
-    style="{" )
+# ..
 
 
-log_level_map = {
-    logging.DEBUG: "debug",
-    logging.INFO: "info",
-    logging.WARNING: "warning",
-    logging.ERROR: "error",
-    logging.CRITICAL: "critical"
-}
+def setup_logging(cvars: argparse.ArgumentParser) -> None:
+    if cvars.verbose >= 3:
+        level = logging.DEBUG
+    elif cvars.verbose == 2:
+        level = logging.INFO
+    elif cvars.verbose == 1:
+        level = logging.WARNING
+    else:
+        level = logging.ERROR
+
+    logging.basicConfig(
+        level=level, 
+        format="[ {asctime:s} ]|[ {name:>32s} ]|[{lineno:4d}]|[  {levelname:<8s} ]|[ {message:s} ]",
+        datefmt="%Y-%m-%dT%H:%M:%SL",
+        style="{" )
+    
+    return
 
 
-log_name = "src.sim.utils"
-
-
-def parse_cvars():
-    logger = logging.getLogger(__name__)
+def parse_cvars() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -42,14 +44,5 @@ def parse_cvars():
     )
 
     parser = parser.parse_args()
-
-    if parser.verbose >= 3:
-        logger.setLevel(level=logging.DEBUG)
-    elif parser.verbose == 2:
-        logger.setLevel(level=logging.INFO)
-    elif parser.verbose == 1:
-        logger.setLevel(level=logging.WARNING)
-    else:
-        logger.setLevel(level=logging.ERROR)
 
     return parser

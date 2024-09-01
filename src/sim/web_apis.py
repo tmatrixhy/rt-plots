@@ -8,19 +8,18 @@ from typing import Dict
 
 # project
 from src.sim.simulator import MonteCarloSimulation
-from src.sim.utils import log_name
 
 # third party
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-
-logger = logging.getLogger(log_name)
+# constants
+logger = logging.getLogger(__name__)
 
 
 class SimulationWEBAPIs:
-    def __init__(self, sims: Dict[str, MonteCarloSimulation]):
+    def __init__(self, sims: Dict[str, MonteCarloSimulation]) -> None:
         self.app = FastAPI()
         self.app.mount(
             "/static", 
@@ -31,7 +30,7 @@ class SimulationWEBAPIs:
         self.ids = [sim_id for sim_id in self.sims.keys()]
         self._setup_routes()
 
-    def _setup_routes(self):
+    def _setup_routes(self) -> None:
         # Define a list of routes and their corresponding action names
         routes = [
             ("/", self.read_index, ["GET"]),
@@ -51,7 +50,7 @@ class SimulationWEBAPIs:
             else:
                 self.app.add_api_route(path, action, methods=methods)
 
-    def handle_request(self, action: str):
+    def handle_request(self, action: str) -> dict:
         def handler(sim_id: str):
             sim = self.sims.get(sim_id)
             if not sim:
@@ -64,9 +63,9 @@ class SimulationWEBAPIs:
         
         return handler
 
-    def read_index(self):
+    def read_index(self) -> HTMLResponse:
         index_file = Path(__file__).parent / "static" / "index.html"
         return HTMLResponse(content=index_file.read_text(), status_code=200)
     
-    def get_simulation_ids(self):
+    def get_simulation_ids(self) -> dict:
         return {"simulation_ids": self.ids }

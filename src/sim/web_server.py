@@ -6,37 +6,36 @@ import asyncio
 import logging
 
 # project
-from src.sim.utils import log_level_map, log_name
+from src.sim.web_apis import SimulationWEBAPIs
 
 # third party
 import uvicorn
 
-
-logger = logging.getLogger(log_name)
+# constants
+logger = logging.getLogger(__name__)
 
 
 class WebServer:
-    def __init__(self, web_apis, host, port):
+    def __init__(self, web_apis:SimulationWEBAPIs, host:str, port:int) -> None:
         self.web_apis = web_apis
         self.host = host
         self.port = port
 
-    async def start_server(self):
+    async def start_server(self) -> None:
         try:
-            logger.error(logger.getEffectiveLevel())
+            await asyncio.sleep(0.1)
             config = uvicorn.Config(
                 self.web_apis.app, 
                 host=self.host, 
                 port=self.port, 
                 lifespan="on",
                 log_config=None,
-                log_level=log_level_map.get(
-                    logger.getEffectiveLevel(), "error")
+                log_level=logger.getEffectiveLevel()
             )
             self.server = uvicorn.Server(config)
             await self.server.serve()
         except asyncio.CancelledError:
             pass
 
-    async def stop_server(self):
+    async def stop_server(self) -> None:
         self.server.should_exit = True

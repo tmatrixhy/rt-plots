@@ -6,29 +6,34 @@ It creates a Flask app and starts the socketio server.
 import sys
 import uuid
 import random
-import logging
 import asyncio
-import argparse
 
 # project
+from src.sim import config
 from src.sim.db_client import DatabaseClient
 from src.sim.data_model import SimID
 from src.sim.simulator import MonteCarloSimulation
 from src.sim.web_apis import SimulationWEBAPIs
 from src.sim.web_server import WebServer
-from src.sim.utils import parse_cvars, log_name
+from src.sim.utils import parse_cvars, setup_logging
 
 # third party
 # ..
 
+# constants
+# ..
 
-logger = logging.getLogger(log_name)
 
-
-async def main():
+async def main() -> None:
+    """
+    Sets up simulations, starts a web server, and 
+        handles cleanup upon termination.
+    """
     cvars = parse_cvars()
+    
+    setup_logging(cvars)
 
-    num_simulations = cvars.sims if cvars.sims else 4
+    num_simulations = cvars.sims if cvars.sims else config.NUM_SIMS
 
     simulation_ids = []
     sims = {}
@@ -37,14 +42,27 @@ async def main():
         rand = str(uuid.uuid4()).replace("-", "")[:6]
         simulation_ids.append(f"sim-{rand}")
 
-    db_client = DatabaseClient()
+    db_client = DatabaseClient(
+        num_buffers=config.DB_BUFFERS,
+        buffer_limit=config.DB_BUFFER_LEN)
 
     for sim_id in simulation_ids:
-        sampling_frequency = random.randint(5, 10)
+        sampling_frequency = random.randint(
+            config.SIM_FREQ_LOW, 
+            config.SIM_FREQ_HIGH)
         sim_id = f"{sim_id}-{sampling_frequency}-Hz"
-        db_client.write(SimID(sim_id=sim_id))
+        
+        db_client.write(
+            SimID(
+                sim_id=sim_id),
+            immediate_commit=True)
+        
         sims[sim_id] = MonteCarloSimulation(
-            sim_id, db_client, sampling_frequency)
+            sim_id=sim_id, 
+            db_client=db_client, 
+            sample_hz=sampling_frequency,
+            max_sample_queue=1000)
+
         sims[sim_id].start()
     
     web_api = SimulationWEBAPIs(sims)

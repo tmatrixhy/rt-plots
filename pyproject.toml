@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "rt-plots"
-version = "0.2.0"
+name = "rt-simulator"
+version = "1.0.0"
 description = ""
 authors = ["tmatrixhy <xitram@gmail.com>"]
 license = "MIT"
@@ -14,9 +14,6 @@ sqlmodel = "^0.0.21"
 psycopg2 = "^2.9.9"
 fastapi = "^0.112.1"
 uvicorn = "^0.30.6"
-websockets = "^13.0.1"
-hypercorn = "^0.17.3"
-python-socketio = "^5.11.3"
 
 
 [build-system]
