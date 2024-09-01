@@ -14,7 +14,8 @@ import logging
 # constants
 # ..
 
-def setup_logging(cvars):
+
+def setup_logging(cvars: argparse.ArgumentParser) -> None:
     if cvars.verbose >= 3:
         level = logging.DEBUG
     elif cvars.verbose == 2:
@@ -33,7 +34,7 @@ def setup_logging(cvars):
     return
 
 
-def parse_cvars():
+def parse_cvars() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(

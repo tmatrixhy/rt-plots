@@ -59,12 +59,99 @@
   "links": [],
   "panels": [
     {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_RT-PLOTS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "semi-dark-red",
+                "value": null
+              },
+              {
+                "color": "semi-dark-green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 15,
+        "x": 0,
+        "y": 0
+      },
+      "id": 104,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${DS_RT-PLOTS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "hide": false,
+          "rawQuery": true,
+          "rawSql": "SELECT\r\n  FLOOR(AVG(samples) / 86400) as \"Sim time days\",\r\n  FLOOR((AVG(samples) % 86400) / 3600) as \"hours\",\r\n  FLOOR((AVG(samples) % 3600) / 60) as \"minutes\",\r\n  FLOOR(AVG(samples) % 60) as \"seconds\",\r\n  COUNT(DISTINCT CASE WHEN delta != 0 THEN sim_id ELSE NULL END) as \"Sims\",\r\n  AVG(delta) as \"Gain\",\r\n  AVG(cost) as \"Cost\",\r\n  AVG(delta - cost) as \"Net Gain\",\r\n  AVG(cost) / AVG(delta) * 100 as \"Cost %\"\r\nFROM sampledata\r\nWHERE sim_id IN (${sim_id:sqlstring})  -- Ensure this covers all sim_ids or adjust as needed\r\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Averages",
+      "transparent": true,
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 6
       },
       "id": 2,
       "panels": [],
@@ -137,9 +224,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 19,
+        "w": 10,
         "x": 0,
-        "y": 1
+        "y": 7
       },
       "id": 1,
       "options": {
@@ -163,7 +250,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  \"timestamp\" AS \"time\", \r\n  value AS \"value\", \r\n  mark AS \"mark\", \r\n  (statistics->>${json_key})::float as \"${json_key}\"\r\nFROM sampledata \r\nWHERE sim_id = ${sim_id:sqlstring}  -- Use the variable here\r\nORDER BY \"timestamp\" ASC\r\n",
+          "rawSql": "WITH base AS (\r\n    SELECT \r\n        \"timestamp\" AS \"time\", \r\n        value,\r\n        mark,\r\n        statistics\r\n    FROM sampledata \r\n    WHERE sim_id = ${sim_id:sqlstring}\r\n)\r\nSELECT \r\n    \"time\",\r\n    value AS \"stat_value\",\r\n    'value' AS \"stat_key\"\r\nFROM base\r\n\r\nUNION ALL\r\n\r\nSELECT \r\n    \"time\",\r\n    mark AS \"stat_value\",\r\n    'mark' AS \"stat_key\"\r\nFROM base\r\n\r\nUNION ALL\r\n\r\nSELECT \r\n    \"time\",\r\n    (stats.value2)::float AS \"stat_value\",\r\n    stats.key AS \"stat_key\"\r\nFROM base,\r\nLATERAL jsonb_each_text(statistics::jsonb) AS stats(key, value2)\r\n\r\nORDER BY \"time\" ASC;\r\n",
           "refId": "A",
           "sql": {
             "columns": [
@@ -253,8 +340,8 @@
       "gridPos": {
         "h": 7,
         "w": 5,
-        "x": 19,
-        "y": 1
+        "x": 10,
+        "y": 7
       },
       "id": 10,
       "options": {
@@ -284,7 +371,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\ntimestamp as \"time\",\r\ndelta \r\nFROM sampledata \r\nWHERE sim_id = ${sim_id:sqlstring}\r\nORDER BY time DESC Limit 1; ",
+          "rawSql": "SELECT \r\ntimestamp as \"time\",\r\ndelta as \"delta\",\r\ncost as \"cost\",\r\n(delta-cost) as \"net\",\r\n(cost/delta)*100 as \"cost %\"\r\nFROM sampledata \r\nWHERE sim_id = ${sim_id:sqlstring}\r\nORDER BY time DESC Limit 1; ",
           "refId": "A",
           "sql": {
             "columns": [
@@ -316,7 +403,7 @@
       "type": "stat"
     }
   ],
-  "refresh": "200ms",
+  "refresh": "1s",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
@@ -385,6 +472,6 @@
   "timezone": "",
   "title": "Simulations",
   "uid": "test",
-  "version": 17,
+  "version": 3,
   "weekStart": ""
 }
